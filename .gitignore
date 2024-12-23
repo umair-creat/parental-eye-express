@@ -1,3 +1,4 @@
 /node_modules
 test.rest
 .env
+package-lock.json
