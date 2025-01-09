@@ -1,6 +1,6 @@
 const userRole={
-    user:2,
-    admin:1
+    admin:2,
+    superAdmin:1
 }
 
 const userStatus = {
@@ -9,20 +9,14 @@ const userStatus = {
     rejected:3,
 }
 
-const payementStatus={
-    paid:1,
-    unpaid:2,
-    cancel:3
-}
-
 const childType = {
     child:1,
     driver:2,
 }
 
-deviceStatus={
+const deviceStatus={
     active:1,
     inactive:2,
 }
 
-module.exports={payementStatus, userRole, userStatus, childType}
+module.exports={userRole, userStatus, childType, deviceStatus}

@@ -32,7 +32,7 @@ const signUp = async (req, res, next) => {
       lastName,
       email,
       password: hashedPassword,
-      role: role || 1,
+      role: role || 2,
     });
 
     res.status(201).json({ message: "User registered successfully", user: newUser });
