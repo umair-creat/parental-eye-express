@@ -1,12 +1,22 @@
-const role={
-    user:2,
-    admin:1
+const userRole={
+    admin:2,
+    superAdmin:1
 }
 
-const payementStatus={
-    paid:1,
-    unpaid:2,
-    cancel:3
+const userStatus = {
+    approved:1,
+    pending:2,
+    rejected:3,
 }
 
-module.exports={payementStatus, role}
+const childType = {
+    child:1,
+    driver:2,
+}
+
+const deviceStatus={
+    active:1,
+    inactive:2,
+}
+
+module.exports={userRole, userStatus, childType, deviceStatus}
