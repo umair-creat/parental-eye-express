@@ -1,35 +1,3 @@
-// 'use strict';
-// const {
-//   Model
-// } = require('sequelize');
-// module.exports = (sequelize, DataTypes) => {
-//   class InvitedUser extends Model {
-//     /**
-//      * Helper method for defining associations.
-//      * This method is not a part of Sequelize lifecycle.
-//      * The `models/index` file will call this method automatically.
-//      */
-//     static associate(models) {
-//       // define association here
-//     }
-//   }
-//   InvitedUser.init({
-//     type: DataTypes.INTEGER,
-//     fullName: DataTypes.STRING,
-//     parentId: DataTypes.INTEGER,
-//     birthDate: DataTypes.DATE,
-//     trackerDeviceId: DataTypes.STRING,
-//     phoneNumber: DataTypes.STRING,
-//     status: DataTypes.INTEGER,
-//     createdAt: DataTypes.DATE,
-//     updatedAt: DataTypes.DATE
-//   }, {
-//     sequelize,
-//     modelName: 'InvitedUser',
-//   });
-//   return InvitedUser;
-// };
-
 'use strict';
 const { Model } = require('sequelize');
 
@@ -40,6 +8,15 @@ module.exports = (sequelize, DataTypes) => {
         foreignKey: 'parentId',
         as: 'parent',
       });
+
+      // Each InvitedUser has one Device
+      InvitedUser.hasOne(models.Device, {
+        foreignKey: 'userId',
+        as: 'device',
+        onDelete: 'CASCADE',
+      });
+    
+
     }
   }
 

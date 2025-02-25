@@ -3,6 +3,7 @@ const { generateHash, compare } = require("../helper/hash");
 const { generateToken, verifyToken } = require("../helper/jwt");
 const { resetPasswordEmail } = require("../email/resetPassword");
 const { sendMail } = require("../helper/mail");
+const { ne } = require("faker/lib/locales");
 
 
 const signUp = async (req, res, next) => {
@@ -184,5 +185,17 @@ const setPassword = async (req, res, next) => {
   }
 };
 
+const getAdminParent = async (req, res, next) => {
+  try {
+    const user = await User.findAll({ where: { role: 2 } });
+    if (!user) {
+      return res.status(404).json({ message: "User not found" });
+    }
+    return res.status(200).json({ message: "Admin Parent",data:user });
+  } catch (error) {
+    return next(error);
+  }
+} 
 
-module.exports = { signUp, loginController, me, getRefreshToken, forgotPassword, setPassword };
+
+module.exports = { signUp, loginController, me, getRefreshToken, forgotPassword, setPassword, getAdminParent };
