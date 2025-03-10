@@ -1,6 +1,7 @@
 const { Op } = require("sequelize");
-const { Device, User, InvitedUser } = require("../models");
+const { Device, User, InvitedUser, Location } = require("../models");
 const { get } = require("../router/device");
+const { deviceMap, subscribeDevice, unsubscribeDevice } = require("../helper/hiveMq");
 
 // ✅ Create a new device
 const createDevice = async (req, res, next) => {
@@ -145,30 +146,39 @@ const assignDeviceToParent = async (req, res) => {
     }
   };
 
+
   const assignDeviceToChild = async (req, res) => {
     try {
-        const { childId, deviceId } = req.body;
+      const { childId, deviceId } = req.body;
+      
       if (!childId || !deviceId) {
-        return res.status(400).json({ message: "Parent ID and Device ID are required." });
+        return res.status(400).json({ message: "Child ID and Device ID are required." });
       }
   
       const child = await InvitedUser.findByPk(childId);
       if (!child) {
-        return res.status(404).json({ message: "child not found." });
+        return res.status(404).json({ message: "Child not found." });
       }
   
       const device = await Device.findByPk(deviceId);
       if (!device) {
         return res.status(404).json({ message: "Device not found." });
       }
-
+  
+      // Assign device to child
       device.userId = childId;
       await device.save();
   
-      return res.status(200).json({ message: "Device assigned successfully.", device });
+      // Check if the device is not already subscribed
+      if (!deviceMap.has(device.deviceName)) {
+        deviceMap.set(device.deviceName, device.id);
+        subscribeDevice(device); // Call the function to subscribe the device dynamically
+        console.log(`🆕 Device ${device.deviceName} subscribed after assignment.`);
+      }
   
+      return res.status(200).json({ message: "Device assigned successfully.", device });
     } catch (error) {
-      console.error("Error assigning device:", error);
+      console.error("❌ Error assigning device:", error);
       return res.status(500).json({ message: "Internal server error." });
     }
   };
@@ -218,9 +228,19 @@ const assignDeviceToParent = async (req, res) => {
       if (!device) {
         return res.status(404).json({ message: "Device not found." });
       }
+      await Location.destroy({
+        where: { device_id: device.id },
+      });
   
+      if (deviceMap.has(device.deviceName)) {
+        unsubscribeDevice(device.deviceName); // Call function to unsubscribe
+        deviceMap.delete(device.deviceName);
+        console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      }
+      
       // Unassign the parent by setting parentId to null
       device.parentId = null;
+      device.userId = null;
       await device.save();
   
       return res.status(200).json({ message: "Device unassigned from parent successfully.", device });
@@ -243,15 +263,25 @@ const assignDeviceToParent = async (req, res) => {
       if (!device) {
         return res.status(404).json({ message: "Device not found." });
       }
+      await Location.destroy({
+        where: { device_id: device.id },
+      });
   
       // Unassign the child by setting userId to null
       device.userId = null;
       await device.save();
   
+      // Remove the device from the deviceMap and stop listening
+      if (deviceMap.has(device.deviceName)) {
+        unsubscribeDevice(device.deviceName); // Call function to unsubscribe
+        deviceMap.delete(device.deviceName);
+        console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      }
+  
       return res.status(200).json({ message: "Device unassigned from child successfully.", device });
   
     } catch (error) {
-      console.error("Error unassigning device from child:", error);
+      console.error("❌ Error unassigning device from child:", error);
       return res.status(500).json({ message: "Internal server error." });
     }
   };

@@ -20,6 +20,7 @@ const getUsersWithLocationHistory = async (req, res) => {
     // Find all users who have these devices
     const users = await Device.findAll({
       where: { id: deviceIds },
+      attributes: ["id", "deviceName", "status"],
       include: [
         {
           model: InvitedUser,
