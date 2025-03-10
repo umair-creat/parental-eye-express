@@ -44,12 +44,17 @@ const getLocationByUserId = async (req, res) => {
     const device = await Device.findOne({ where: { userId } });
     if (!device) return res.status(404).json({ message: "Device not found for this user" });
 
+    const start = new Date(startDate);
+    const end = new Date(endDate);
+
+    // Adjust end time to include full day (23:59:59)
+    start.setHours(0,0,0,1);
+    end.setHours(23, 59, 59, 999)
     const location = await Location.findAll({
       where: {
         device_id: device.id,
-        received_at: {
-          [Op.between]: [new Date(startDate), new Date(endDate)],
-        },
+        received_at:
+          { [Op.between]: [start, end] },
       },
       order: [["received_at", "DESC"]],
     });

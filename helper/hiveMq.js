@@ -44,36 +44,61 @@ const connectMqtt = async () => {
 
       client.on('connect', () => {
         console.log(`✅ Connected to HiveMQ Cloud as ${device.deviceName}`);
-        const topic = `tracking/location/${device.deviceName}`;
-        client.subscribe(topic, (err) => {
-          if (err) {
-            console.error(`❌ Subscription Error for ${device.deviceName}:`, err);
-          } else {
-            console.log(`📡 Subscribed to ${topic}`);
-          }
+        
+        // Subscribe to location updates
+        const locationTopic = `tracking/location/${device.deviceName}`;
+        client.subscribe(locationTopic, (err) => {
+          if (err) console.error(`❌ Subscription Error: ${err}`);
+          else console.log(`📡 Subscribed to ${locationTopic}`);
+        });
+
+        // Subscribe to danger alerts
+        const dangerTopic = `tracking/danger/${device.deviceName}`;
+        client.subscribe(dangerTopic, (err) => {
+          if (err) console.error(`❌ Subscription Error: ${err}`);
+          else console.log(`🚨 Subscribed to ${dangerTopic}`);
         });
       });
 
       client.on('message', async (topic, message) => {
         try {
           console.log(`📥 Received message on topic: ${topic}`);
-          const locationData = JSON.parse(message.toString());
+          const data = JSON.parse(message.toString());
 
-          if (!locationData.latitude || !locationData.longitude) {
-            console.error(`❌ Invalid location data received: ${message.toString()}`);
-            return;
+          if (topic.startsWith("tracking/location/")) {
+            // Process normal location updates
+            if (!data.latitude || !data.longitude) {
+              console.error(`❌ Invalid location data: ${message.toString()}`);
+              return;
+            }
+
+            const deviceId = deviceMap.get(data.username);
+            if (!deviceId) {
+              console.error(`❌ Device ID not found for ${data.username}`);
+              return;
+            }
+
+            await saveDeviceLocation(deviceId, data.latitude, data.longitude);
+          } 
+          else if (topic.startsWith("tracking/danger/")) {
+            // Process danger alerts
+            if (!data.latitude || !data.longitude) {
+              console.error(`❌ Invalid danger alert: ${message.toString()}`);
+              return;
+            }
+
+            const deviceId = deviceMap.get(data.username);
+            if (!deviceId) {
+              console.error(`❌ Device ID not found for ${data.username}`);
+              return;
+            }
+
+            // Save the danger alert as a location status update
+            await saveDeviceLocation(deviceId, data.latitude, data.longitude, 2); // 2 = Danger
+            console.log(`🚨 Danger alert received from ${data.username}`);
           }
-
-          const deviceId = deviceMap.get(locationData.username); // Retrieve device ID from the Map
-
-          if (!deviceId) {
-            console.error(`❌ Device ID not found for ${locationData.username}`);
-            return;
-          }
-
-          await saveDeviceLocation(deviceId, locationData.latitude, locationData.longitude);
         } catch (error) {
-          console.error(`❌ Error processing message from ${topic}:`, error);
+          console.error(`❌ Error processing message:`, error);
         }
       });
 
