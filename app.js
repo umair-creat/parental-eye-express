@@ -3,7 +3,7 @@ const { sequelize } = require("./models");
 const router = require("./router/index");
 const cors = require("cors");
 const logger = require('morgan');
-const connectMqtt = require("./config/connectMqtt");
+const {connectMqtt} = require("./config/connectMqtt");
 connectMqtt();
 
 const app = express();

@@ -1,7 +1,6 @@
 const { Op } = require("sequelize");
 const { Device, User, InvitedUser, Location } = require("../models");
-const { get } = require("../router/device");
-const { deviceMap, subscribeDevice, unsubscribeDevice } = require("../helper/hiveMq");
+const { clientMap, unsubscribeDevice, subscribeDevice } = require("../config/connectMqtt");
 
 // ✅ Create a new device
 const createDevice = async (req, res, next) => {
@@ -170,10 +169,11 @@ const assignDeviceToParent = async (req, res) => {
       await device.save();
   
       // Check if the device is not already subscribed
-      if (!deviceMap.has(device.deviceName)) {
-        deviceMap.set(device.deviceName, device.id);
-        subscribeDevice(device); // Call the function to subscribe the device dynamically
-        console.log(`🆕 Device ${device.deviceName} subscribed after assignment.`);
+      if (!clientMap.has(device.deviceName)) {
+        subscribeDevice(device.deviceName); // Unsubscribe from MQTT
+        console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      } else {
+        console.log(`⚠️ Device ${device.deviceName} was not actively subscribed.`);
       }
   
       return res.status(200).json({ message: "Device assigned successfully.", device });
@@ -232,10 +232,11 @@ const assignDeviceToParent = async (req, res) => {
         where: { device_id: device.id },
       });
   
-      if (deviceMap.has(device.deviceName)) {
-        unsubscribeDevice(device.deviceName); // Call function to unsubscribe
-        deviceMap.delete(device.deviceName);
+      if (clientMap.has(device.deviceName)) {
+        unsubscribeDevice(device.deviceName); // Unsubscribe from MQTT
         console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      } else {
+        console.log(`⚠️ Device ${device.deviceName} was not actively subscribed.`);
       }
       
       // Unassign the parent by setting parentId to null
@@ -263,6 +264,8 @@ const assignDeviceToParent = async (req, res) => {
       if (!device) {
         return res.status(404).json({ message: "Device not found." });
       }
+  
+      // Remove device location history
       await Location.destroy({
         where: { device_id: device.id },
       });
@@ -271,21 +274,24 @@ const assignDeviceToParent = async (req, res) => {
       device.userId = null;
       await device.save();
   
-      // Remove the device from the deviceMap and stop listening
-      if (deviceMap.has(device.deviceName)) {
-        unsubscribeDevice(device.deviceName); // Call function to unsubscribe
-        deviceMap.delete(device.deviceName);
+      // Check if the device is subscribed before unsubscribing
+      if (clientMap.has(device.deviceName)) {
+        unsubscribeDevice(device.deviceName); // Unsubscribe from MQTT
         console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      } else {
+        console.log(`⚠️ Device ${device.deviceName} was not actively subscribed.`);
       }
   
-      return res.status(200).json({ message: "Device unassigned from child successfully.", device });
+      return res.status(200).json({
+        message: "Device unassigned from child successfully.",
+        device,
+      });
   
     } catch (error) {
       console.error("❌ Error unassigning device from child:", error);
       return res.status(500).json({ message: "Internal server error." });
     }
   };
-  
   
   
   
