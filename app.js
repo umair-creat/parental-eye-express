@@ -1,50 +1,42 @@
 const express = require("express");
+const http = require("http"); // Required for integrating with Socket.IO
 const { sequelize } = require("./models");
 const router = require("./router/index");
 const cors = require("cors");
-const logger = require('morgan');
-const connectMqtt = require("./helper/hiveMq");
-connectMqtt();
+const logger = require("morgan");
+const { connectMqtt } = require("./config/connectMqtt");
+const { initializeSocket } = require("./config/socketConfig");
+
 
 const app = express();
-app.use(express.json());
-
+const server = http.createServer(app); // Create HTTP server for Socket.IO
 const PORT = process.env.PORT || 3000;
 
-app.use(cors());
-app.use(logger('dev'));
-
-
-
-app.use(
-  cors({
-    origin: "http://localhost:5173",
-  })
-);
-
+app.use(express.json());
+app.use(cors({ origin: "http://localhost:5173" }));
+app.use(logger("dev"));
 app.use("/api/", router);
+
+
+connectMqtt();
+initializeSocket(server);
+
 
 sequelize
   .authenticate()
-  .then(() => console.log("Database connected..."))
-  .catch((err) => console.log("Error: " + err));
+  .then(() => console.log("✅ Database connected..."))
+  .catch((err) => console.log("❌ Database Error: " + err));
 
 
 app.use((error, _req, res, _next) => {
   const statusCode = error.status || 500;
-  const message = error.message || 'Something went wrong';
-
-  console.error(error);  // Log the error details for debugging
-
-  // Send the error response
-  res.status(statusCode).json({
-    message: message,
-  });
-})
+  console.error(error); // Log error details
+  res.status(statusCode).json({ message: error.message || "Something went wrong" });
+});
 
 
-app.listen(PORT, () => {
-  console.log(`Server running on port ${PORT}`);
+server.listen(PORT, () => {
+  console.log(`🚀 Server running on port ${PORT}`);
 });
 
 module.exports = app;

@@ -1,6 +1,6 @@
 const { Op } = require("sequelize");
-const { Device, User, InvitedUser } = require("../models");
-const { get } = require("../router/device");
+const { Device, User, InvitedUser, Location } = require("../models");
+const { clientMap, unsubscribeDevice, subscribeDevice } = require("../config/connectMqtt");
 
 // ✅ Create a new device
 const createDevice = async (req, res, next) => {
@@ -145,30 +145,40 @@ const assignDeviceToParent = async (req, res) => {
     }
   };
 
+
   const assignDeviceToChild = async (req, res) => {
     try {
-        const { childId, deviceId } = req.body;
+      const { childId, deviceId } = req.body;
+      
       if (!childId || !deviceId) {
-        return res.status(400).json({ message: "Parent ID and Device ID are required." });
+        return res.status(400).json({ message: "Child ID and Device ID are required." });
       }
   
       const child = await InvitedUser.findByPk(childId);
       if (!child) {
-        return res.status(404).json({ message: "child not found." });
+        return res.status(404).json({ message: "Child not found." });
       }
   
       const device = await Device.findByPk(deviceId);
       if (!device) {
         return res.status(404).json({ message: "Device not found." });
       }
-
+  
+      // Assign device to child
       device.userId = childId;
       await device.save();
   
-      return res.status(200).json({ message: "Device assigned successfully.", device });
+      // Check if the device is not already subscribed
+      if (!clientMap.has(device.deviceName)) {
+        subscribeDevice(device.deviceName); // Unsubscribe from MQTT
+        console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      } else {
+        console.log(`⚠️ Device ${device.deviceName} was not actively subscribed.`);
+      }
   
+      return res.status(200).json({ message: "Device assigned successfully.", device });
     } catch (error) {
-      console.error("Error assigning device:", error);
+      console.error("❌ Error assigning device:", error);
       return res.status(500).json({ message: "Internal server error." });
     }
   };
@@ -218,9 +228,20 @@ const assignDeviceToParent = async (req, res) => {
       if (!device) {
         return res.status(404).json({ message: "Device not found." });
       }
+      await Location.destroy({
+        where: { device_id: device.id },
+      });
   
+      if (clientMap.has(device.deviceName)) {
+        unsubscribeDevice(device.deviceName); // Unsubscribe from MQTT
+        console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      } else {
+        console.log(`⚠️ Device ${device.deviceName} was not actively subscribed.`);
+      }
+      
       // Unassign the parent by setting parentId to null
       device.parentId = null;
+      device.userId = null;
       await device.save();
   
       return res.status(200).json({ message: "Device unassigned from parent successfully.", device });
@@ -244,20 +265,63 @@ const assignDeviceToParent = async (req, res) => {
         return res.status(404).json({ message: "Device not found." });
       }
   
+      // Remove device location history
+      await Location.destroy({
+        where: { device_id: device.id },
+      });
+  
       // Unassign the child by setting userId to null
       device.userId = null;
       await device.save();
   
-      return res.status(200).json({ message: "Device unassigned from child successfully.", device });
+      // Check if the device is subscribed before unsubscribing
+      if (clientMap.has(device.deviceName)) {
+        unsubscribeDevice(device.deviceName); // Unsubscribe from MQTT
+        console.log(`🛑 Stopped listening for ${device.deviceName}`);
+      } else {
+        console.log(`⚠️ Device ${device.deviceName} was not actively subscribed.`);
+      }
+  
+      return res.status(200).json({
+        message: "Device unassigned from child successfully.",
+        device,
+      });
   
     } catch (error) {
-      console.error("Error unassigning device from child:", error);
+      console.error("❌ Error unassigning device from child:", error);
       return res.status(500).json({ message: "Internal server error." });
     }
   };
   
+  const getActiveDevices = async (req, res) => {
+    try {
+      const  parentId = req.user.id; // Assuming parentId is retrieved from authentication
   
+      if (!parentId) {
+        return res.status(400).json({ message: "Parent ID is required." });
+      }
   
+      // Fetch active devices for the logged-in parent
+      const activeDevices = await Device.findAll({
+        where: {
+          parentId,
+          status: 1, // 1 = Active
+        }
+      });
+  
+      if (!activeDevices.length) {
+        return res.status(404).json({ message: "No active devices found." });
+      }
+      
+      return res.status(200).json({
+        message: "Active devices retrieved successfully.",
+        devices: activeDevices,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching active devices:", error);
+      return res.status(500).json({ message: "Internal server error." });
+    }
+  };
   
 
 module.exports = {
@@ -271,5 +335,6 @@ module.exports = {
     getUnassignedChildren,
     unassignDeviceFromParent,
     unassignDeviceFromChild,
+    getActiveDevices,
 
 };
