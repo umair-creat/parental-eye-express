@@ -1,3 +1,4 @@
+const EventEmitter = require("events");
 require("dotenv").config();
 const mqtt = require("mqtt");
 const { Device } = require("../models");
@@ -6,23 +7,19 @@ const { saveDeviceLocation } = require("../helper/locationStore");
 
 const { HIVEMQ_CONNECTION_STRING } = process.env;
 
-// Maps to track MQTT clients and inactivity timers
-const clientMap = new Map();
-const deviceTimeouts = new Map();
+const deviceEventEmitter = new EventEmitter(); // Event emitter for real-time updates
+const clientMap = new Map(); // Stores active MQTT clients
+const deviceTimeouts = new Map(); // Stores inactivity timeouts
+const deviceStatusCache = new Map(); // Caches last known status to prevent duplicate events
 
-// Function to subscribe a device
 const subscribeDevice = async (device) => {
   if (clientMap.has(device.deviceName)) {
     console.log(`⚠️ MQTT Client already exists for ${device.deviceName}`);
     return;
   }
 
-  if(!device.password){
-    device = await Device.findOne({
-      where: {
-        deviceName: device,
-      },
-    });
+  if (!device.password) {
+    device = await Device.findOne({ where: { deviceName: device } });
   }
 
   const options = {
@@ -34,15 +31,17 @@ const subscribeDevice = async (device) => {
   };
 
   const client = mqtt.connect(HIVEMQ_CONNECTION_STRING, options);
-  clientMap.set(device.deviceName, { client, deviceId: device.id }); // Store both client & device ID
+  clientMap.set(device.deviceName, { client, deviceId: device.id });
+
+  // Emit deviceChange event only if the device was not already present
+  if (!deviceStatusCache.has(device.id)) {
+    deviceEventEmitter.emit("deviceChange", { action: "added", deviceId: device.id });
+  }
 
   client.on("connect", () => {
     console.log(`✅ Connected to MQTT as ${device.deviceName}`);
 
-    const topics = [
-      `tracking/location/${device.deviceName}`,
-      `tracking/danger/${device.deviceName}`,
-    ];
+    const topics = [`tracking/location/${device.deviceName}`, `tracking/danger/${device.deviceName}`];
 
     client.subscribe(topics, (err) => {
       if (err) console.error(`❌ Subscription Error:`, err);
@@ -62,25 +61,35 @@ const subscribeDevice = async (device) => {
 
       if (topic.includes("location")) {
         await saveDeviceLocation(deviceId, data.latitude, data.longitude);
-        await Device.update({ status: 1 }, { where: { id: deviceId } });
 
-        console.log(`✅ Device ${device.deviceName} is ACTIVE`);
+        // Only update if status has changed
+        if (deviceStatusCache.get(deviceId) !== 1) {
+          await Device.update({ status: 1 }, { where: { id: deviceId } });
+          deviceStatusCache.set(deviceId, 1);
+          console.log(`✅ Device ${device.deviceName} is ACTIVE`);
+          deviceEventEmitter.emit("deviceStatusChange", { deviceId, status: 1 });
+        }
 
-        // Reset inactivity timeout
+        // Clear any existing timeout
         if (deviceTimeouts.has(deviceId)) {
           clearTimeout(deviceTimeouts.get(deviceId));
         }
 
-        // Set a timeout to mark the device as inactive if no updates in 30s
+        // Set new timeout for INACTIVE status
         const timeout = setTimeout(async () => {
-          await Device.update({ status: 2 }, { where: { id: deviceId } });
-          console.log(`⏳ Device ${device.deviceName} is now INACTIVE (No updates in 30s)`);
+          if (deviceStatusCache.get(deviceId) !== 2) {
+            await Device.update({ status: 2 }, { where: { id: deviceId } });
+            deviceStatusCache.set(deviceId, 2);
+            console.log(`⏳ Device ${device.deviceName} is now INACTIVE (No updates in 30s)`);
+            deviceEventEmitter.emit("deviceStatusChange", { deviceId, status: 2 });
+          }
         }, 30000);
 
         deviceTimeouts.set(deviceId, timeout);
       } else if (topic.includes("danger")) {
         await saveDeviceLocation(deviceId, data.latitude, data.longitude, 2);
         console.log(`🚨 Danger alert received from ${device.deviceName}`);
+        deviceEventEmitter.emit("dangerAlert", { deviceId, status: 2 });
       }
     } catch (error) {
       console.error(`❌ Error processing message:`, error);
@@ -90,21 +99,25 @@ const subscribeDevice = async (device) => {
   client.on("error", (err) => console.error(`❌ MQTT Error:`, err));
 };
 
-// Function to unsubscribe a device
 const unsubscribeDevice = (deviceName) => {
   if (clientMap.has(deviceName)) {
-    const { client } = clientMap.get(deviceName);
-    client.end(); // Disconnect MQTT
-    clientMap.delete(deviceName); // Remove from tracking
+    const { client, deviceId } = clientMap.get(deviceName);
+    client.end();
+    clientMap.delete(deviceName);
+    deviceStatusCache.delete(deviceId); // Clear status cache
+
+    // Emit deviceChange event only if the device was previously tracked
+    deviceEventEmitter.emit("deviceChange", { action: "removed", deviceId });
+
     console.log(`🛑 Disconnected MQTT client for ${deviceName}`);
   } else {
     console.log(`⚠️ Device ${deviceName} was not actively subscribed.`);
   }
 };
 
-// Function to initialize all devices
 const connectMqtt = async () => {
   try {
+    // Reset all devices to inactive **only if they are currently active**
     await Device.update({ status: 2 }, { where: { status: 1 } });
     console.log("🔄 Reset all active devices to INACTIVE at startup");
 
@@ -120,11 +133,15 @@ const connectMqtt = async () => {
       return;
     }
 
-    devices.forEach((device) => subscribeDevice(device));
+    // Subscribe only to devices that are NOT in clientMap
+    devices.forEach((device) => {
+      if (!clientMap.has(device.deviceName)) {
+        subscribeDevice(device);
+      }
+    });
   } catch (error) {
     console.error("❌ Error connecting to MQTT:", error);
   }
 };
 
-// Export functions
-module.exports = { connectMqtt, subscribeDevice, unsubscribeDevice, clientMap };
+module.exports = { connectMqtt, subscribeDevice, unsubscribeDevice, clientMap, deviceEventEmitter };

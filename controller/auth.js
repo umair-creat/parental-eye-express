@@ -92,20 +92,22 @@ const getRefreshToken = async (req, res, next) => {
     const { refreshToken } = req.body;
     const tokenData = await verifyToken(refreshToken);
 
-
     const user = await User.findByPk(tokenData.id).catch(() => null);
-
     if (!user) {
-      return next(createError(400, 'Invalid refresh token!'));
+      return next(createError(400, "Invalid refresh token!"));
     }
-    const newToken = user.generateToken();
-    const newRefreshToken = user.generateToken('1yr');
+
+    // Remove `exp` before generating a new token
+    const { exp, ...cleanTokenData } = tokenData;
+
+    const newToken = generateToken(cleanTokenData, "1h");
+    const newRefreshToken = generateToken(cleanTokenData, "86400s"); // 1 day
+
     return res.status(200).json({ token: newToken, refreshToken: newRefreshToken });
   } catch (err) {
     return next(err);
   }
 };
-
 const forgotPassword = async (req, res, next) => {
   try {
     const email = req.body?.email;

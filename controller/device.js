@@ -293,7 +293,35 @@ const assignDeviceToParent = async (req, res) => {
     }
   };
   
+  const getActiveDevices = async (req, res) => {
+    try {
+      const  parentId = req.user.id; // Assuming parentId is retrieved from authentication
   
+      if (!parentId) {
+        return res.status(400).json({ message: "Parent ID is required." });
+      }
+  
+      // Fetch active devices for the logged-in parent
+      const activeDevices = await Device.findAll({
+        where: {
+          parentId,
+          status: 1, // 1 = Active
+        }
+      });
+  
+      if (!activeDevices.length) {
+        return res.status(404).json({ message: "No active devices found." });
+      }
+      
+      return res.status(200).json({
+        message: "Active devices retrieved successfully.",
+        devices: activeDevices,
+      });
+    } catch (error) {
+      console.error("❌ Error fetching active devices:", error);
+      return res.status(500).json({ message: "Internal server error." });
+    }
+  };
   
 
 module.exports = {
@@ -307,5 +335,6 @@ module.exports = {
     getUnassignedChildren,
     unassignDeviceFromParent,
     unassignDeviceFromChild,
+    getActiveDevices,
 
 };

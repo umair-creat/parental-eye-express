@@ -1,10 +1,11 @@
 const deviceRouter = require('express').Router();
-const { createDevice, getAllDevices, getDeviceById, updateDevice, deleteDevice, assignDeviceToParent, assignDeviceToChild, getUnassignedChildren, unassignDeviceFromParent, unassignDeviceFromChild } = require('../controller/device');
+const { createDevice, getAllDevices, getDeviceById, updateDevice, deleteDevice, assignDeviceToParent, assignDeviceToChild, getUnassignedChildren, unassignDeviceFromParent, unassignDeviceFromChild, getActiveDevices } = require('../controller/device');
 const { authenticate } = require('../middlewares/authenticate');
 
 deviceRouter.post("/", authenticate,createDevice);
 deviceRouter.get("/", authenticate, getAllDevices);
 deviceRouter.get("/unassigned-child", authenticate, getUnassignedChildren);
+deviceRouter.get("/active-devices", authenticate, getActiveDevices);
 deviceRouter.get("/:id", authenticate, getDeviceById);
 deviceRouter.put("/:id", authenticate, updateDevice);
 deviceRouter.delete("/:id", authenticate, deleteDevice);
