@@ -4,15 +4,15 @@ const { Model } = require('sequelize');
 module.exports = (sequelize, DataTypes) => {
   class Device extends Model {
     static associate(models) {
-      // A Device belongs to an InvitedUser (One-to-One)
-      Device.belongsTo(models.InvitedUser, { 
-        foreignKey: 'userId',
-        as: 'user',
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE',
+      // A Device belongs to a User (instead of InvitedUser)
+      Device.belongsTo(models.User, {
+        foreignKey: "userId",
+        as: "user",
+        onDelete: "CASCADE",
+        onUpdate: "CASCADE",
       });
 
-      // A Device belongs to a Parent User (One-to-Many)
+      // A Device belongs to a Parent User (Admin)
       Device.belongsTo(models.User, {
         foreignKey: 'parentId',
         as: 'parent',
@@ -34,16 +34,16 @@ module.exports = (sequelize, DataTypes) => {
       },
       userId: {
         type: DataTypes.INTEGER,
-        allowNull: true, // Invited User is optional
-        unique: true, // Ensures one InvitedUser has only one Device
+        allowNull: true, // Now referencing User table instead of InvitedUser
+        unique: true,
         references: {
-          model: 'InvitedUsers',
+          model: 'Users',
           key: 'id',
         },
       },
       parentId: {
         type: DataTypes.INTEGER,
-        allowNull: true, // Parent User is optional
+        allowNull: true,
         references: {
           model: 'Users',
           key: 'id',
@@ -51,8 +51,9 @@ module.exports = (sequelize, DataTypes) => {
       },
       status: {
         type: DataTypes.INTEGER,
-        defaultValue: 1,
+        defaultValue: 2,
       },
+      
     },
     {
       sequelize,

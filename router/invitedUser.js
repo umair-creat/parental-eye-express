@@ -1,16 +1,18 @@
 const invitedUserRouter = require('express').Router();
 
-const { removeInvitedUser, getAllInvitedUsers, getInvitedUsersById, addOrUpdateInvitedUser, handdleToggleStatusById } = require('../controller/inviteUser');
+
+const { addOrUpdateUser, removeUser, getAllUsers, getUserById, getAllParents, getAllDrivers } = require('../controller/inviteUser');
 const { authenticate } = require('../middlewares/authenticate');
 
-invitedUserRouter.post('/', authenticate, addOrUpdateInvitedUser);
+invitedUserRouter.post('/', authenticate, addOrUpdateUser);
 
-invitedUserRouter.delete('/:id', authenticate, removeInvitedUser);
+invitedUserRouter.get('/', authenticate, getAllUsers);
+invitedUserRouter.get('/parent', authenticate, getAllParents);
+invitedUserRouter.get('/driver', authenticate, getAllDrivers);
 
-invitedUserRouter.get('/', authenticate, getAllInvitedUsers);
+invitedUserRouter.delete('/:id', authenticate, removeUser);
 
-invitedUserRouter.get('/:id', authenticate, getInvitedUsersById);
+invitedUserRouter.get('/:id', authenticate, getUserById);
 
-invitedUserRouter.put('/:id/toggle-status', authenticate, handdleToggleStatusById);
 
 module.exports = invitedUserRouter;
