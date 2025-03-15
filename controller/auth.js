@@ -61,8 +61,8 @@ const loginController = async (req, res, next) => {
       throw error;
     }
 
-    const token = generateToken(user.toJSON());
-    const refreshToken = generateToken(user.toJSON(), "1yr");
+    const token = generateToken(user.toJSON(), '1h');
+    const refreshToken = generateToken(user.toJSON(), "7d");
 
     res.status(200).json({
       message: "Login successful",
@@ -100,8 +100,11 @@ const getRefreshToken = async (req, res, next) => {
     // Remove `exp` before generating a new token
     const { exp, ...cleanTokenData } = tokenData;
 
-    const newToken = generateToken(cleanTokenData, "1h");
-    const newRefreshToken = generateToken(cleanTokenData, "86400s"); // 1 day
+
+    const newToken = generateToken(user.toJSON(), '1h');
+    const newRefreshToken = generateToken(user.toJSON(), "7d"); // 1 day
+    console.log(refreshToken);
+    console.log(newRefreshToken);
 
     return res.status(200).json({ token: newToken, refreshToken: newRefreshToken });
   } catch (err) {

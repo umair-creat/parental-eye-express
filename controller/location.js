@@ -1,7 +1,5 @@
-
-
 const { Op } = require("sequelize");
-const { User, InvitedUser, Device, Location } = require("../models");
+const { User, Device, Location } = require("../models");
 
 const getUsersWithLocationHistory = async (req, res) => {
   try {
@@ -10,7 +8,7 @@ const getUsersWithLocationHistory = async (req, res) => {
       attributes: ["device_id"],
       group: ["device_id"], // Ensures unique device IDs
     });
-
+    
     const deviceIds = devicesWithLocation.map((loc) => loc.device_id);
 
     if (deviceIds.length === 0) {
@@ -18,19 +16,19 @@ const getUsersWithLocationHistory = async (req, res) => {
     }
 
     // Find all users who have these devices
-    const users = await Device.findAll({
+    const devices = await Device.findAll({
       where: { id: deviceIds },
-      attributes: ["id", "deviceName", "status"],
+      attributes: ["id", "deviceName", "status", "userId"],
       include: [
         {
-          model: InvitedUser,
+          model: User,
           as: "user",
-          attributes: ["id", "fullName", "phoneNumber", "status"],
+          attributes: ["id", "firstName", "phoneNumber"],
         },
       ],
     });
 
-    return res.status(200).json({ users });
+    return res.status(200).json({ devices });
   } catch (error) {
     console.error("Error fetching users with location history:", error);
     return res.status(500).json({ message: "Internal server error." });
@@ -49,13 +47,13 @@ const getLocationByUserId = async (req, res) => {
     const end = new Date(endDate);
 
     // Adjust end time to include full day (23:59:59)
-    start.setHours(0,0,0,1);
-    end.setHours(23, 59, 59, 999)
+    start.setHours(0, 0, 0, 1);
+    end.setHours(23, 59, 59, 999);
+
     const location = await Location.findAll({
       where: {
         device_id: device.id,
-        received_at:
-          { [Op.between]: [start, end] },
+        received_at: { [Op.between]: [start, end] },
       },
       order: [["received_at", "DESC"]],
     });
@@ -68,6 +66,5 @@ const getLocationByUserId = async (req, res) => {
     return res.status(500).json({ message: "Internal Server Error" });
   }
 };
-
 
 module.exports = { getLocationByUserId, getUsersWithLocationHistory };

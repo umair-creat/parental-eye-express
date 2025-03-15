@@ -1,17 +1,49 @@
 'use strict';
 const { Model } = require('sequelize');
+
 module.exports = (sequelize, DataTypes) => {
   class User extends Model {
     static associate(models) {
-      User.hasMany(models.InvitedUser, {
-        foreignKey: 'parentId',
-        as: 'invitedUsers',
+      // Admin-Child Relationship (An admin can add multiple children)
+      User.hasMany(models.User, {
+        foreignKey: 'adminId',
+        as: 'adminCreatedChildren',
       });
-    }
 
-    // Virtual field for full name
-    get fullName() {
-      return `${this.firstName} ${this.lastName}`;
+      User.belongsTo(models.User, {
+        foreignKey: 'adminId',
+        as: 'createdByAdmin',
+      });
+
+      // Parent-Child Relationship (A parent can have multiple children)
+      User.hasMany(models.User, {
+        foreignKey: 'parentId',
+        as: 'children',
+      });
+
+      User.belongsTo(models.User, {
+        foreignKey: 'parentId',
+        as: 'parent',
+      });
+
+      // Driver-Child Relationship (A driver can be assigned multiple children)
+      User.hasMany(models.User, {
+        foreignKey: 'driverId',
+        as: 'assignedChildren',
+      });
+
+      User.belongsTo(models.User, {
+        foreignKey: 'driverId',
+        as: 'driver',
+      });
+
+      // Each user can have one device (if needed)
+      User.hasOne(models.Device, {
+        foreignKey: 'userId',
+        as: 'device',
+        onDelete: 'CASCADE',
+        onUpdate: 'CASCADE',
+      });
     }
   }
 
@@ -36,24 +68,50 @@ module.exports = (sequelize, DataTypes) => {
     role: {
       type: DataTypes.INTEGER,
       allowNull: false,
-      defaultValue: 2,
+      // Roles:
+      // 1 = Super Admin, 2 = Admin, 3 = Guardian, 4 = Child, 5 = Driver
+      defaultValue: 3,
     },
     status: {
       type: DataTypes.INTEGER,
       allowNull: false,
       defaultValue: 2,
     },
-    forgetToken: {
-      type: DataTypes.STRING,
-      allowNull: true,
-    },
     phoneNumber: {
       type: DataTypes.STRING,
       allowNull: true,
     },
-    entityId: {
-      type: DataTypes.UUID,
+    // Password reset token
+    forgetToken: {
+      type: DataTypes.STRING,
       allowNull: true,
+    },
+    // Admin who created the user (for child users)
+    adminId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Users',
+        key: 'id',
+      },
+    },
+    // Parent ID (only applies to children)
+    parentId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Users',
+        key: 'id',
+      },
+    },
+    // Assigned driver ID (only applies to children)
+    driverId: {
+      type: DataTypes.INTEGER,
+      allowNull: true,
+      references: {
+        model: 'Users',
+        key: 'id',
+      },
     },
   }, {
     sequelize,
