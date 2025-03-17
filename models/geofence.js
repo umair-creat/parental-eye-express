@@ -1,59 +1,72 @@
-'use strict';
-const { Model } = require('sequelize');
+"use strict";
+const { Model } = require("sequelize");
 
 module.exports = (sequelize, DataTypes) => {
   class Geofence extends Model {
     static associate(models) {
-      // A Geofence belongs to a Device
-      Geofence.belongsTo(models.Device, {
-        foreignKey: 'device_id',
-        as: 'device',
-        onDelete: 'CASCADE',
-        onUpdate: 'CASCADE',
+      // Many-to-Many Relationship with Devices
+      Geofence.belongsToMany(models.Device, {
+        through: models.GeofenceDevice, // Join table
+        foreignKey: "geofence_id",
+        as: "devices", // Alias for associated devices
+      });
+
+      // Belongs to User (Created By)
+      Geofence.belongsTo(models.User, {
+        foreignKey: "created_by",
+        as: "creator",
       });
     }
   }
 
   Geofence.init(
     {
-      id: {
-        type: DataTypes.INTEGER,
-        autoIncrement: true,
-        primaryKey: true,
+      name: {
+        type: DataTypes.STRING,
         allowNull: false,
       },
       type: {
-        type: DataTypes.ENUM('area', 'route'),
+        type: DataTypes.ENUM("area", "route", "circle"),
         allowNull: false,
-        defaultValue: 'area',
+        defaultValue: "area",
       },
       area: {
-        type: DataTypes.GEOMETRY('POLYGON', 4326),
+        type: DataTypes.GEOMETRY("POLYGON", 4326),
         allowNull: true,
       },
       path: {
-        type: DataTypes.GEOMETRY('LINESTRING', 4326),
+        type: DataTypes.GEOMETRY("LINESTRING", 4326),
         allowNull: true,
       },
-      buffer: {
-        type: DataTypes.GEOMETRY('POLYGON', 4326),
+      center: {
+        type: DataTypes.GEOMETRY("POINT", 4326),
         allowNull: true,
       },
-      device_id: {
+      radius: {
+        type: DataTypes.FLOAT,
+        allowNull: true,
+      },
+      status: {
+        type: DataTypes.ENUM("active", "inactive"),
+        allowNull: false,
+        defaultValue: "active",
+      },
+      created_by: {
         type: DataTypes.INTEGER,
         allowNull: false,
-      },
-      created_at: {
-        type: DataTypes.DATE,
-        allowNull: false,
-        defaultValue: DataTypes.NOW,
+        references: {
+          model: "Users",
+          key: "id",
+        },
       },
     },
     {
       sequelize,
-      modelName: 'Geofence',
-      tableName: 'geofences',
-      timestamps: false,
+      modelName: "Geofence",
+      tableName: "Geofences",
+      timestamps: true,
+      createdAt: "created_at",
+      updatedAt: false, // Disable updatedAt
     }
   );
 

@@ -44,6 +44,11 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: 'CASCADE',
         onUpdate: 'CASCADE',
       });
+
+      User.hasMany(models.Geofence, {
+        foreignKey: "created_by",
+        as: "geofences",
+      });
     }
   }
 
