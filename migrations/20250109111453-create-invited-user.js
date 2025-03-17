@@ -2,46 +2,49 @@
 /** @type {import('sequelize-cli').Migration} */
 module.exports = {
   async up(queryInterface, Sequelize) {
-    await queryInterface.createTable('Devices', {
+    await queryInterface.createTable('InvitedUsers', {
       id: {
-        allowNull: false,
+        type: Sequelize.INTEGER,
         autoIncrement: true,
         primaryKey: true,
+        allowNull: false,
+      },
+      type: {
         type: Sequelize.INTEGER,
+        allowNull: false,
+        defaultValue: 2,
       },
-      deviceName: {
+      fullName: {
         type: Sequelize.STRING,
         allowNull: false,
       },
-      password: {
-        type: Sequelize.STRING,
-        allowNull: false,
-      },
-      userId: {
+      parentId: {
         type: Sequelize.INTEGER,
         allowNull: true,
         references: {
-          model: 'InvitedUsers', // Make sure this matches your actual table name
+          model: 'Users',
           key: 'id',
         },
+        onDelete: 'SET NULL',
         onUpdate: 'CASCADE',
-        onDelete: 'CASCADE',
       },
-      status: {
-        type: Sequelize.INTEGER,
-        defaultValue: 1, // Assuming 1 is active
-      },
-      createdAt: {
-        allowNull: false,
+      birthDate: {
         type: Sequelize.DATE,
+        allowNull: true,
       },
-      updatedAt: {
-        allowNull: false,
-        type: Sequelize.DATE,
+      trackerDeviceId: {
+        type: Sequelize.STRING,
+        allowNull: true,
       },
+      phoneNumber: {
+        type: Sequelize.STRING,
+        allowNull: true,
+      },
+      createdAt: Sequelize.DATE,
+      updatedAt: Sequelize.DATE,
     });
   },
   async down(queryInterface, Sequelize) {
-    await queryInterface.dropTable('Devices');
+    await queryInterface.dropTable('InvitedUsers');
   },
 };

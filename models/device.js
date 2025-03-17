@@ -19,6 +19,11 @@ module.exports = (sequelize, DataTypes) => {
         onDelete: 'SET NULL',
         onUpdate: 'CASCADE',
       });
+      Device.belongsToMany(models.Geofence, {
+        through: models.GeofenceDevice, // Join table
+        foreignKey: "device_id",
+        as: "geofences", // Alias for associated geofences
+      });
     }
   }
 

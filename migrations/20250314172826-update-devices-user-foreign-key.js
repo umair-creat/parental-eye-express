@@ -26,16 +26,5 @@ module.exports = {
       ALTER TABLE "Devices" DROP CONSTRAINT IF EXISTS "Devices_userId_fkey";
     `);
 
-    // Revert the userId column to reference InvitedUsers
-    await queryInterface.changeColumn('Devices', 'userId', {
-      type: Sequelize.INTEGER,
-      allowNull: true,
-      references: {
-        model: 'InvitedUsers', // previous reference table
-        key: 'id',
-      },
-      onUpdate: 'CASCADE',
-      onDelete: 'CASCADE',
-    });
   },
 };
